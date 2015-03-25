@@ -1,0 +1,132 @@
+@import "compass";
+
+$light: #fafafa;
+$light-gray: #ececec;
+$magic: 1.618em;
+
+.footnote-container {
+	display: inline-block;
+	position: relative;
+	text-indent: 0;
+}
+
+.footnote-backdrop {
+    cursor: pointer;
+}
+
+.footnote-button {
+	position: relative;
+    z-index: 5;
+    top: -.2em;
+    display: inline-block;
+    border: 0;
+    margin: 0 .1em 0 .2em;
+    padding: .35em;
+    width: 1.5em;
+    height: .95em;
+    @include border-radius(.475em);
+    cursor: pointer;
+    background: rgba(110, 110, 110, .2);
+    font-size: 1rem;
+    line-height: 0;
+    vertical-align: super;
+    @include transition-property(background);
+	@include transition-duration(.25s);
+	&:after {
+		content: attr(data-fn-number);
+    	position: absolute;
+    	top: 50%;
+    	left: 50%;
+    	@include translate(-50%, -50%);
+		display: block;
+		font-size: .57em;
+		font-weight: bold;
+		color: rgba(110, 110, 110, .5);
+		@include transition(color .25s ease);
+	}
+	&:hover {
+		outline: none;
+		background: rgba(110, 110, 110, .5);
+		&:after {
+			color: $light;
+		}
+	}
+	&.is-active {
+		background: rgba(110, 110, 110, 1);
+		@include transition-delay(.1s);
+		&:after {
+			color: $light;
+		}
+	}
+}
+
+.littlefoot-footnote {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    /*max-width: 90%;*/
+    max-width: 90vw;
+    margin: $magic 0;
+    background: $light;
+    opacity: 0;
+    @include border-radius(.25em);
+    border: 1px solid $light-gray;
+    @include transition-property(opacity);
+	@include transition-duration(.25s);
+	@include transition-timing-function(ease);
+    @include transform-origin(50% 0);
+    &.footnote-is-active {
+		opacity: .97;
+	}
+	&.footnote-is-top {
+	    top: auto;
+	    bottom: 0;
+	}
+}
+
+.footnote-wrapper {
+    position: relative;
+    z-index: 14;
+    width: 22em;
+    max-width: 100%;
+    overflow: hidden;
+    margin: 0;
+    background: inherit;
+    @include border-radius(.25em);
+}
+
+.footnote-tooltip {
+    position: absolute;
+    top: -.49em;
+    z-index: 12;
+    /*margin-left: -.65em;*/
+    width: 1.3em;
+    height: 1.3em;
+    background: inherit;
+    border: 1px solid $light-gray;
+    @include rotate(45deg);
+    .footnote-is-top & {
+    	top: auto;
+    	bottom: -.49em;
+    }
+}
+
+.footnote-content {
+	position: relative;
+    z-index: 8;
+    max-height: 15em;
+    padding: 1em;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    -webkit-font-smoothing: subpixel-antialiased;
+    line-height: $magic - .2em;
+    *:first-child {
+    	margin-top: 0;
+    	padding-top: 0;
+    }
+    *:last-child {
+    	margin-bottom: 0;
+    	padding-bottom: 0;
+    }
+}
