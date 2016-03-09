@@ -3,17 +3,17 @@
 class LittleFoot {
     constructor(options={}) {
       const DEFAULTS = {
-        scope: document,
-       divFootnotesQuery: ".footnotes",
-       footnotesQuery: "[id^='fn']",
-       fnButtonMarkup: "<button class=\"footnote-button\" id=\"{{FOOTNOTEREFID}}\" data-footnote=\"{{FOOTNOTEID}}\" alt=\"See Footnote {{FOOTNOTENUMBER}}\" rel=\"footnote\" data-fn-number=\"{{FOOTNOTENUMBER}}\" data-fn-content=\"{{FOOTNOTECONTENT}}\"></button>",
-       fnContentMarkup: "<div class=\"littlefoot-footnote\" id=\"{{FOOTNOTEID}}\"><div class=\"footnote-wrapper\"><div class=\"footnote-content\">{{FOOTNOTECONTENT}}</div></div><div class=\"footnote-tooltip\" aria-hidden=\"true\"></div>"
+        scope: 'body',
+        divFootnotesQuery: ".footnotes",
+        footnotesQuery: "[id^='fn']",
+        fnButtonMarkup: "<button class=\"footnote-button\" id=\"{{FOOTNOTEREFID}}\" data-footnote=\"{{FOOTNOTEID}}\" alt=\"See Footnote {{FOOTNOTENUMBER}}\" rel=\"footnote\" data-fn-number=\"{{FOOTNOTENUMBER}}\" data-fn-content=\"{{FOOTNOTECONTENT}}\"></button>",
+        fnContentMarkup: "<div class=\"littlefoot-footnote\" id=\"{{FOOTNOTEID}}\"><div class=\"footnote-wrapper\"><div class=\"footnote-content\" tabindex='0'>{{FOOTNOTECONTENT}}</div></div><div class=\"footnote-tooltip\" aria-hidden=\"true\"></div>"
       }
 
       this.config = Object.assign({}, DEFAULTS, options);
 
       // A selector could select multiple containers
-      this.divFootnotes = [].slice.call(this.config.scope.querySelectorAll(this.config.divFootnotesQuery));
+      this.divFootnotes = [].slice.call(document.querySelectorAll(this.config.divFootnotesQuery));
 
       // Returns if no container
       if (!this.divFootnotes) return false;
@@ -23,13 +23,38 @@ class LittleFoot {
         return el.querySelectorAll(this.config.footnotesQuery);
       });
 
-      // Discovers the transition event for the current browser
+      // Polyfill for Element.matches()
+      // Based on https://davidwalsh.name/element-matches-selector
+      
+      Element.prototype.matches = (Element.prototype.matches || 
+                                  Element.prototype.mozMatchesSelector || 
+                                  Element.prototype.msMatchesSelector || 
+                                  Element.prototype.oMatchesSelector ||
+                                  Element.prototype.webkitMatchesSelector ||
+                                  function(s) {
+                                    return [].indexOf.call(document.querySelectorAll(s), this) !== -1;
+                                  });
+
+      // Polyfill for Element.closest()
+      // Based on http://stackoverflow.com/questions/18663941/finding-closest-element-without-jquery
+      
+      Element.prototype.closest = (Element.prototype.closest || function(s) {
+        var el = this;
+
+        while (el !== null) {
+          let parent = el.parentElement;
+          if (parent !== null && parent.matches(s)) {
+            return parent;
+          }
+          el = parent;
+        }
+        return null;
+      });
     }
 
     init() {
       // Makes pretty footnote buttons
-      this.footnoteButtonsBuilder();
-      this.actionSetup();
+      this.footnoteButtonsBuilder(this.actionSetup);
     }
 
     removeBackLinks(fnHtml, backId) {
@@ -37,6 +62,10 @@ class LittleFoot {
 
       if (backId.indexOf(' ') >= 0) {
         backId = backId.trim().replace(/\s+/g, "|").replace(/(.*)/g, "($1)");
+      }
+
+      if (backId.indexOf('#') === 0) {
+        backId = backId.slice(1);
       }
 
       regex = new RegExp(`(\\s|&nbsp;)*<\\s*a[^#<]*#${backId}[^>]*>(.*?)<\\s*/\\s*a>`, "g");
@@ -52,22 +81,18 @@ class LittleFoot {
       return this.config.fnContentMarkup.replace(/\{\{FOOTNOTEID\}\}/g, id).replace(/\{\{FOOTNOTECONTENT\}\}/g, content);
     }
 
-    clickAction(ev) {
+    clickAction(e) {
       let btn, content, id, fnHtml, fn, windowHeight;
 
-      btn = ev.target;
+      btn = e.target;
       content = btn.getAttribute('data-fn-content');
       id = btn.getAttribute("data-footnote");
 
-      this.removeFootnotes()
-
       if (!btn.nextElementSibling) {
+        this.removeFootnotes();
         fnHtml = this.buildContent(id, content);
         btn.insertAdjacentHTML('afterend', fnHtml);
         fn = btn.nextElementSibling;
-
-        //windowHeight = window.innerHeight || window.availHeight;
-        //windowHeight = (window.innerHeight > 0) ? window.innerHeight : window.availHeight;
 
         this.calculateOffset(fn, btn);
         this.calculateSpacing(fn);
@@ -75,9 +100,13 @@ class LittleFoot {
         btn.classList.add('is-active');
         fn.classList.add('footnote-is-active');
 
+        fn.querySelector('.footnote-content').focus();
+
         if ('ontouchstart' in document.documentElement) {
           document.body.classList.add("footnote-backdrop");
         }
+      } else {
+        this.removeFootnotes();
       }
     }
 
@@ -95,13 +124,12 @@ class LittleFoot {
       contOffset = container.offsetLeft;
       wrapWidth = fn.offsetWidth;
       wrapMove = -((wrapWidth / 2) - (contWidth / 2));
-
-      windowWidth = window.outerWidth || window.availWidth;
+      windowWidth = window.innerWidth || window.availWidth;
 
       if ((contOffset + wrapMove) < 0) {
         wrapMove = (wrapMove - (contOffset + wrapMove));
       } else if ((contOffset + wrapMove + wrapWidth) > windowWidth) {
-        wrapMove = (wrapMove - (contOffset + wrapMove + wrapWidth - windowWidth));
+        wrapMove = (wrapMove - (contOffset + wrapMove + wrapWidth + (contWidth / 2) - windowWidth));
       }
 
       fn.style.left = wrapMove + "px";
@@ -116,31 +144,27 @@ class LittleFoot {
 
     debounce(func, wait, immediate) {
       var timeout;
-      return function() {
-        var context = this
-          , args = arguments;
+      return function(...args) {
 
-        var later = function() {
+        let later = () => {
           timeout = null;
-          if (!immediate) func.apply(context, args);
+          if (!immediate) func.apply(this, args);
         };
 
-        var callNow = immediate && !timeout;
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
-        if (callNow) func.apply(context, args);
+        if (immediate && !timeout) func.apply(this, args);
       }
     }
 
     resizeAction() {
       let footnotes = document.querySelectorAll('.footnote-is-active');
 
-      if (footnotes) {
-        for (let fn of footnotes) {
-          console.log(fn);
+      if (footnotes.length) {
+        [].forEach.call(footnotes, () => {
           this.calculateOffset(fn);
           this.calculateSpacing(fn);
-        }
+        });
       }
     }
 
@@ -164,7 +188,7 @@ class LittleFoot {
     scrollAction() {
       let footnotes = document.querySelectorAll('.footnote-is-active');
 
-      if (footnotes) {
+      if (footnotes.length) {
         let windowHeight = window.innerHeight || window.availHeight
           , margins = this.calculateMargins(footnotes[0]);
 
@@ -175,6 +199,7 @@ class LittleFoot {
     }
 
     calculateMargins(fn) {
+      
       let computedStyle = window.getComputedStyle(fn, null);
       return {
         top: parseFloat(computedStyle.marginTop),
@@ -184,30 +209,14 @@ class LittleFoot {
       }
     }
 
-    closestClass(el, _class) {
-      do {
-        try {
-          if (el.classList.contains(_class)) {
-            return el;
-          }
-        } catch(e) {
-          if (e instanceof TypeError) {
-            return null;
-          }
-        }
-      } while (!!(el = el.parentNode));
-
-      return null;
-    }
-
     documentAction(ev) {
-      if (!this.closestClass(ev.target, "footnote-container")) this.removeFootnotes();
+      if (!ev.target.closest(".footnote-container")) this.removeFootnotes();
     }
 
     removeFootnotes() {
       let footnotes = document.querySelectorAll('.footnote-is-active');
 
-      if (footnotes) {
+      if (footnotes.length) {
         [].forEach.call(footnotes, (el) => {
           el.previousElementSibling.classList.remove('is-active');
           el.addEventListener('transitionend', this.removeFootnoteChild(el), false);
@@ -218,8 +227,11 @@ class LittleFoot {
       if (document.body.classList.contains("footnote-backdrop")) document.body.classList.remove("footnote-backdrop");
     }
 
-    footnoteButtonsBuilder() {
+    footnoteButtonsBuilder(cb) {
+
       [].forEach.call(this.footnotes, (fns, i) => {
+        var currentScope = fns[0].closest(this.config.scope);
+
         [].forEach.call(fns, (fn, i) => {
           let fnContent
             , fnHrefId
@@ -230,7 +242,7 @@ class LittleFoot {
           ;
 
           fnRefN = i + 1;
-          fnHrefId = fn.querySelector('a[href^="#fnref"]').getAttribute('href').substring(1);
+          fnHrefId = fn.querySelector('a[href^="#fnref"]').getAttribute('href');
           // Removes the hash from the href attribute. I had to appeal to this because there has been some issues parsing IDs with colons on querySelector. Yes, I tried to escape them, but no good.
           fnContent = this.removeBackLinks(fn.innerHTML.trim(), fnHrefId);
 
@@ -238,7 +250,7 @@ class LittleFoot {
 
           if (fnContent.indexOf("<") !== 0) fnContent = "<p>" + fnContent + "</p>";
 
-          ref = document.getElementById(fnHrefId);
+          ref = currentScope.querySelector(fnHrefId.replace(':', '\\:'));
 
           footnote = `<div class=\"footnote-container\">${this.buildButton(fnHrefId, fn.id, fnRefN, fnContent)}</div>`;
 
@@ -246,10 +258,12 @@ class LittleFoot {
           ref.parentNode.removeChild(ref);
         });
       });
+
+      cb.bind(this)();
     }
 
     actionSetup() {
-      let buttons = this.config.scope.querySelectorAll('.footnote-button');
+      let buttons = document.querySelectorAll('.footnote-button');
 
       [].forEach.call(buttons, (el) => {
         el.addEventListener("click", this.clickAction.bind(this));
@@ -260,12 +274,15 @@ class LittleFoot {
       document.body.addEventListener("click", this.documentAction.bind(this));
       document.body.addEventListener("touchend", this.documentAction.bind(this));
 
-      // Remove the footnote container
+      window.addEventListener('keyup', (e) => {
+        if (e.keyCode === 27 && document.activeElement.matches('.footnote-content')) {
+          document.activeElement.closest('.footnote-is-active').previousElementSibling.focus();
+          this.removeFootnotes();
+        }
+      });
+
       this.divFootnotes.forEach((el) => {
         return el.parentNode.removeChild(el);
       });
     }
 }
-
-var lf = new LittleFoot;
-lf.init();
