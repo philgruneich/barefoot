@@ -1,26 +1,39 @@
 "use strict";
 
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var LittleFoot = function () {
-  function LittleFoot() {
+var BareFoot = function () {
+  function BareFoot() {
     var _this = this;
 
     var options = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
 
-    _classCallCheck(this, LittleFoot);
+    _classCallCheck(this, BareFoot);
 
     var DEFAULTS = {
       scope: 'body',
       divFootnotesQuery: ".footnotes",
       footnotesQuery: "[id^='fn']",
+      supQuery: 'a[href^="#fnref"]',
       fnButtonMarkup: "<button class=\"footnote-button\" id=\"{{FOOTNOTEREFID}}\" data-footnote=\"{{FOOTNOTEID}}\" alt=\"See Footnote {{FOOTNOTENUMBER}}\" rel=\"footnote\" data-fn-number=\"{{FOOTNOTENUMBER}}\" data-fn-content=\"{{FOOTNOTECONTENT}}\"></button>",
-      fnContentMarkup: "<div class=\"littlefoot-footnote\" id=\"{{FOOTNOTEID}}\"><div class=\"footnote-wrapper\"><div class=\"footnote-content\" tabindex='0'>{{FOOTNOTECONTENT}}</div></div><div class=\"footnote-tooltip\" aria-hidden=\"true\"></div>"
+      fnContentMarkup: "<div class=\"bf-footnote\" id=\"{{FOOTNOTEID}}\"><div class=\"footnote-wrapper\"><div class=\"footnote-content\" tabindex=\"0\">{{FOOTNOTECONTENT}}</div></div><div class=\"footnote-tooltip\" aria-hidden=\"true\"></div>",
+      activeCallback: null,
+      activeBtnClass: 'is-active',
+      activeFnClass: 'footnote-is-active',
+      backdropClass: 'footnote-backdrop',
+      buttonClass: 'footnote-button',
+      fnContainer: 'footnote-container',
+      fnClass: 'bf-footnote',
+      fnContentClass: 'footnote-content',
+      fnWrapperClass: 'footnote-wrapper',
+      tooltipClass: 'footnote-tooltip'
     };
 
-    this.config = Object.assign({}, DEFAULTS, options);
+    this.config = _extends({}, DEFAULTS, options);
 
     // A selector could select multiple containers
     this.divFootnotes = [].slice.call(document.querySelectorAll(this.config.divFootnotesQuery));
@@ -57,13 +70,7 @@ var LittleFoot = function () {
     };
   }
 
-  _createClass(LittleFoot, [{
-    key: "init",
-    value: function init() {
-      // Makes pretty footnote buttons
-      this.footnoteButtonsBuilder(this.actionSetup);
-    }
-  }, {
+  _createClass(BareFoot, [{
     key: "removeBackLinks",
     value: function removeBackLinks(fnHtml, backId) {
       var regex = void 0;
@@ -105,7 +112,7 @@ var LittleFoot = function () {
       id = btn.getAttribute("data-footnote");
 
       if (!btn.nextElementSibling) {
-        this.removeFootnotes();
+        this.dismissFootnotes();
         fnHtml = this.buildContent(id, content);
         btn.insertAdjacentHTML('afterend', fnHtml);
         fn = btn.nextElementSibling;
@@ -113,16 +120,20 @@ var LittleFoot = function () {
         this.calculateOffset(fn, btn);
         this.calculateSpacing(fn);
 
-        btn.classList.add('is-active');
-        fn.classList.add('footnote-is-active');
+        btn.classList.add(this.config.activeBtnClass);
+        fn.classList.add(this.config.activeFnClass);
 
-        fn.querySelector('.footnote-content').focus();
+        fn.querySelector("." + this.config.fnContentClass).focus();
 
         if ('ontouchstart' in document.documentElement) {
-          document.body.classList.add("footnote-backdrop");
+          document.body.classList.add(this.config.backdropClass);
+        }
+
+        if (this.config.activeCallback) {
+          this.config.activeCallback(btn, fn);
         }
       } else {
-        this.removeFootnotes();
+        this.dismissFootnotes();
       }
     }
   }, {
@@ -145,7 +156,7 @@ var LittleFoot = function () {
 
       btnOffset = btn.offsetLeft;
       btnWidth = btn.offsetWidth;
-      tooltip = fn.querySelector('.footnote-tooltip');
+      tooltip = fn.querySelector("." + this.config.tooltipClass);
       tipWidth = tooltip.clientWidth;
       container = fn.parentNode;
       contWidth = container.clientWidth;
@@ -196,7 +207,7 @@ var LittleFoot = function () {
     value: function resizeAction() {
       var _this3 = this;
 
-      var footnotes = document.querySelectorAll('.footnote-is-active');
+      var footnotes = document.querySelectorAll("." + this.config.activeFnClass);
 
       if (footnotes.length) {
         [].forEach.call(footnotes, function () {
@@ -222,9 +233,9 @@ var LittleFoot = function () {
       bcb = bcr.bottom;
 
       if (bcb > windowHeight - margins.bottom) {
-        fn.classList.add("footnote-is-top");
-      } else if (windowHeight - (bch + margins.top) > bcb && fn.classList.contains("footnote-is-top")) {
-        fn.classList.remove("footnote-is-top");
+        fn.classList.add(this.config.fnOnTopClass);
+      } else if (windowHeight - (bch + margins.top) > bcb && fn.classList.contains(this.config.fnOnTopClass)) {
+        fn.classList.remove(this.config.fnOnTopClass);
       }
     }
   }, {
@@ -232,7 +243,7 @@ var LittleFoot = function () {
     value: function scrollAction() {
       var _this4 = this;
 
-      var footnotes = document.querySelectorAll('.footnote-is-active');
+      var footnotes = document.querySelectorAll("." + this.config.activeFnClass);
 
       if (footnotes.length) {
         var windowHeight = window.innerHeight || window.availHeight,
@@ -258,28 +269,28 @@ var LittleFoot = function () {
   }, {
     key: "documentAction",
     value: function documentAction(ev) {
-      if (!ev.target.closest(".footnote-container")) this.removeFootnotes();
+      if (!ev.target.closest("." + this.config.fnContainer)) this.dismissFootnotes();
     }
   }, {
-    key: "removeFootnotes",
-    value: function removeFootnotes() {
+    key: "dismissFootnotes",
+    value: function dismissFootnotes() {
       var _this5 = this;
 
-      var footnotes = document.querySelectorAll('.footnote-is-active');
+      var footnotes = document.querySelectorAll("." + this.config.activeFnClass);
 
       if (footnotes.length) {
         [].forEach.call(footnotes, function (el) {
-          el.previousElementSibling.classList.remove('is-active');
+          el.previousElementSibling.classList.remove(_this5.config.activeBtnClass);
           el.addEventListener('transitionend', _this5.removeFootnoteChild(el), false);
-          el.classList.remove("footnote-is-active");
+          el.classList.remove(_this5.config.activeFnClass);
         });
       }
 
-      if (document.body.classList.contains("footnote-backdrop")) document.body.classList.remove("footnote-backdrop");
+      if (document.body.classList.contains(this.config.backdropClass)) document.body.classList.remove(this.config.backdropClass);
     }
   }, {
-    key: "footnoteButtonsBuilder",
-    value: function footnoteButtonsBuilder(cb) {
+    key: "init",
+    value: function init() {
       var _this6 = this;
 
       [].forEach.call(this.footnotes, function (fns, i) {
@@ -294,7 +305,7 @@ var LittleFoot = function () {
               footnote = void 0;
 
           fnRefN = i + 1;
-          fnHrefId = fn.querySelector('a[href^="#fnref"]').getAttribute('href');
+          fnHrefId = fn.querySelector(_this6.config.supQuery).getAttribute('href');
           // Removes the hash from the href attribute. I had to appeal to this because there has been some issues parsing IDs with colons on querySelector. Yes, I tried to escape them, but no good.
           fnContent = _this6.removeBackLinks(fn.innerHTML.trim(), fnHrefId);
 
@@ -304,37 +315,37 @@ var LittleFoot = function () {
 
           ref = currentScope.querySelector(fnHrefId.replace(':', '\\:'));
 
-          footnote = "<div class=\"footnote-container\">" + _this6.buildButton(fnHrefId, fn.id, fnRefN, fnContent) + "</div>";
+          footnote = "<div class=\"" + _this6.config.fnContainer + "\">" + _this6.buildButton(fnHrefId, fn.id, fnRefN, fnContent) + "</div>";
 
           ref.insertAdjacentHTML('afterend', footnote);
           ref.parentNode.removeChild(ref);
         });
       });
 
-      cb.bind(this)();
+      this.eventsSetup();
     }
   }, {
-    key: "actionSetup",
-    value: function actionSetup() {
+    key: "dismissOnEsc",
+    value: function dismissOnEsc(e) {
+      if (e.keyCode === 27 && document.activeElement.matches("." + this.config.fnContentClass)) {
+        document.activeElement.closest("." + this.config.activeFnClass).previousElementSibling.focus();
+        return this.dismissFootnotes();
+      }
+    }
+  }, {
+    key: "eventsSetup",
+    value: function eventsSetup() {
       var _this7 = this;
 
-      var buttons = document.querySelectorAll('.footnote-button');
-
-      [].forEach.call(buttons, function (el) {
+      [].forEach.call(document.querySelectorAll("." + this.config.buttonClass), function (el) {
         el.addEventListener("click", _this7.clickAction.bind(_this7));
       });
 
       window.addEventListener("resize", this.debounce(this.resizeAction.bind(this), 100));
       window.addEventListener("scroll", this.debounce(this.scrollAction.bind(this), 100));
+      window.addEventListener("keyup", this.dismissOnEsc.bind(this));
       document.body.addEventListener("click", this.documentAction.bind(this));
       document.body.addEventListener("touchend", this.documentAction.bind(this));
-
-      window.addEventListener('keyup', function (e) {
-        if (e.keyCode === 27 && document.activeElement.matches('.footnote-content')) {
-          document.activeElement.closest('.footnote-is-active').previousElementSibling.focus();
-          _this7.removeFootnotes();
-        }
-      });
 
       this.divFootnotes.forEach(function (el) {
         return el.parentNode.removeChild(el);
@@ -342,5 +353,5 @@ var LittleFoot = function () {
     }
   }]);
 
-  return LittleFoot;
+  return BareFoot;
 }();

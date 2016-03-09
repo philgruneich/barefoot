@@ -1,13 +1,24 @@
 "use strict";
 
-class LittleFoot {
+class BareFoot {
     constructor(options={}) {
       const DEFAULTS = {
         scope: 'body',
         divFootnotesQuery: ".footnotes",
         footnotesQuery: "[id^='fn']",
+        supQuery: 'a[href^="#fnref"]',
         fnButtonMarkup: "<button class=\"footnote-button\" id=\"{{FOOTNOTEREFID}}\" data-footnote=\"{{FOOTNOTEID}}\" alt=\"See Footnote {{FOOTNOTENUMBER}}\" rel=\"footnote\" data-fn-number=\"{{FOOTNOTENUMBER}}\" data-fn-content=\"{{FOOTNOTECONTENT}}\"></button>",
-        fnContentMarkup: "<div class=\"littlefoot-footnote\" id=\"{{FOOTNOTEID}}\"><div class=\"footnote-wrapper\"><div class=\"footnote-content\" tabindex='0'>{{FOOTNOTECONTENT}}</div></div><div class=\"footnote-tooltip\" aria-hidden=\"true\"></div>"
+        fnContentMarkup: "<div class=\"bf-footnote\" id=\"{{FOOTNOTEID}}\"><div class=\"footnote-wrapper\"><div class=\"footnote-content\" tabindex=\"0\">{{FOOTNOTECONTENT}}</div></div><div class=\"footnote-tooltip\" aria-hidden=\"true\"></div>",
+        activeCallback: null,
+        activeBtnClass: 'is-active',
+        activeFnClass: 'footnote-is-active',
+        backdropClass: 'footnote-backdrop',
+        buttonClass: 'footnote-button',
+        fnContainer: 'footnote-container',
+        fnClass: 'bf-footnote',
+        fnContentClass: 'footnote-content',
+        fnWrapperClass: 'footnote-wrapper',
+        tooltipClass: 'footnote-tooltip'
       }
 
       this.config = Object.assign({}, DEFAULTS, options);
@@ -52,11 +63,6 @@ class LittleFoot {
       });
     }
 
-    init() {
-      // Makes pretty footnote buttons
-      this.footnoteButtonsBuilder(this.actionSetup);
-    }
-
     removeBackLinks(fnHtml, backId) {
       let regex;
 
@@ -89,7 +95,7 @@ class LittleFoot {
       id = btn.getAttribute("data-footnote");
 
       if (!btn.nextElementSibling) {
-        this.removeFootnotes();
+        this.dismissFootnotes();
         fnHtml = this.buildContent(id, content);
         btn.insertAdjacentHTML('afterend', fnHtml);
         fn = btn.nextElementSibling;
@@ -97,16 +103,20 @@ class LittleFoot {
         this.calculateOffset(fn, btn);
         this.calculateSpacing(fn);
 
-        btn.classList.add('is-active');
-        fn.classList.add('footnote-is-active');
+        btn.classList.add(this.config.activeBtnClass);
+        fn.classList.add(this.config.activeFnClass);
 
-        fn.querySelector('.footnote-content').focus();
+        fn.querySelector(`.${this.config.fnContentClass}`).focus();
 
         if ('ontouchstart' in document.documentElement) {
-          document.body.classList.add("footnote-backdrop");
+          document.body.classList.add(this.config.backdropClass);
+        }
+
+        if (this.config.activeCallback) {
+          this.config.activeCallback(btn, fn);
         }
       } else {
-        this.removeFootnotes();
+        this.dismissFootnotes();
       }
     }
 
@@ -117,7 +127,7 @@ class LittleFoot {
 
       btnOffset = btn.offsetLeft;
       btnWidth = btn.offsetWidth;
-      tooltip = fn.querySelector('.footnote-tooltip');
+      tooltip = fn.querySelector(`.${this.config.tooltipClass}`);
       tipWidth = tooltip.clientWidth;
       container = fn.parentNode;
       contWidth = container.clientWidth;
@@ -158,7 +168,7 @@ class LittleFoot {
     }
 
     resizeAction() {
-      let footnotes = document.querySelectorAll('.footnote-is-active');
+      let footnotes = document.querySelectorAll(`.${this.config.activeFnClass}`);
 
       if (footnotes.length) {
         [].forEach.call(footnotes, () => {
@@ -179,14 +189,14 @@ class LittleFoot {
       bcb = bcr.bottom;
 
       if (bcb > (windowHeight - margins.bottom)) {
-        fn.classList.add("footnote-is-top");
-      } else if (windowHeight  - (bch + margins.top) > bcb && fn.classList.contains("footnote-is-top")) {
-        fn.classList.remove("footnote-is-top");
+        fn.classList.add(this.config.fnOnTopClass);
+      } else if (windowHeight  - (bch + margins.top) > bcb && fn.classList.contains(this.config.fnOnTopClass)) {
+        fn.classList.remove(this.config.fnOnTopClass);
       }
     }
 
     scrollAction() {
-      let footnotes = document.querySelectorAll('.footnote-is-active');
+      let footnotes = document.querySelectorAll(`.${this.config.activeFnClass}`);
 
       if (footnotes.length) {
         let windowHeight = window.innerHeight || window.availHeight
@@ -210,24 +220,26 @@ class LittleFoot {
     }
 
     documentAction(ev) {
-      if (!ev.target.closest(".footnote-container")) this.removeFootnotes();
+      if (!ev.target.closest(`.${this.config.fnContainer}`)) this.dismissFootnotes();
     }
 
-    removeFootnotes() {
-      let footnotes = document.querySelectorAll('.footnote-is-active');
+    dismissFootnotes() {
+      let footnotes = document.querySelectorAll(`.${this.config.activeFnClass}`);
 
       if (footnotes.length) {
         [].forEach.call(footnotes, (el) => {
-          el.previousElementSibling.classList.remove('is-active');
+          el.previousElementSibling.classList.remove(this.config.activeBtnClass);
           el.addEventListener('transitionend', this.removeFootnoteChild(el), false);
-          el.classList.remove("footnote-is-active");
+          el.classList.remove(this.config.activeFnClass);
         })
       }
 
-      if (document.body.classList.contains("footnote-backdrop")) document.body.classList.remove("footnote-backdrop");
+      if (document.body.classList.contains(this.config.backdropClass)) document.body.classList.remove(this.config.backdropClass);
     }
 
-    footnoteButtonsBuilder(cb) {
+
+
+    init() {
 
       [].forEach.call(this.footnotes, (fns, i) => {
         var currentScope = fns[0].closest(this.config.scope);
@@ -242,7 +254,7 @@ class LittleFoot {
           ;
 
           fnRefN = i + 1;
-          fnHrefId = fn.querySelector('a[href^="#fnref"]').getAttribute('href');
+          fnHrefId = fn.querySelector(this.config.supQuery).getAttribute('href');
           // Removes the hash from the href attribute. I had to appeal to this because there has been some issues parsing IDs with colons on querySelector. Yes, I tried to escape them, but no good.
           fnContent = this.removeBackLinks(fn.innerHTML.trim(), fnHrefId);
 
@@ -252,34 +264,34 @@ class LittleFoot {
 
           ref = currentScope.querySelector(fnHrefId.replace(':', '\\:'));
 
-          footnote = `<div class=\"footnote-container\">${this.buildButton(fnHrefId, fn.id, fnRefN, fnContent)}</div>`;
+          footnote = `<div class="${this.config.fnContainer}">${this.buildButton(fnHrefId, fn.id, fnRefN, fnContent)}</div>`;
 
           ref.insertAdjacentHTML('afterend', footnote);
           ref.parentNode.removeChild(ref);
         });
       });
 
-      cb.bind(this)();
+      this.eventsSetup();
     }
 
-    actionSetup() {
-      let buttons = document.querySelectorAll('.footnote-button');
+    dismissOnEsc(e) {
+      if (e.keyCode === 27 && document.activeElement.matches(`.${this.config.fnContentClass}`)) {
+          document.activeElement.closest(`.${this.config.activeFnClass}`).previousElementSibling.focus();
+          return this.dismissFootnotes();
+        }
+    }
 
-      [].forEach.call(buttons, (el) => {
+    eventsSetup() {
+
+      [].forEach.call(document.querySelectorAll(`.${this.config.buttonClass}`), (el) => {
         el.addEventListener("click", this.clickAction.bind(this));
       });
 
       window.addEventListener("resize", this.debounce(this.resizeAction.bind(this), 100));
       window.addEventListener("scroll", this.debounce(this.scrollAction.bind(this), 100));
+      window.addEventListener("keyup", this.dismissOnEsc.bind(this));
       document.body.addEventListener("click", this.documentAction.bind(this));
       document.body.addEventListener("touchend", this.documentAction.bind(this));
-
-      window.addEventListener('keyup', (e) => {
-        if (e.keyCode === 27 && document.activeElement.matches('.footnote-content')) {
-          document.activeElement.closest('.footnote-is-active').previousElementSibling.focus();
-          this.removeFootnotes();
-        }
-      });
 
       this.divFootnotes.forEach((el) => {
         return el.parentNode.removeChild(el);

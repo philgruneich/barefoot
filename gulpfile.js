@@ -84,5 +84,5 @@ gulp.task('browser-sync', ['nodemon'], () => {
 gulp.task('default', ['browser-sync'], () => {
   gulp.watch('src/**/*.js', ['js']);
   gulp.watch('src/**/*.scss', ['sass']);
-  gulp.watch('public/**/*.html', ['bs-reload']);
+  gulp.watch('test/**/*.html', ['bs-reload']);
 });

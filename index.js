@@ -1,14 +1,40 @@
 'use strict'
 
-var express = require('express');
-var app = express();
-var router = express.Router();
+var http = require('http');
+var fs = require('fs');
+var path = require('path');
 
-app.use(express.static('public'));
-app.use(express.static('dist'));
+http.createServer(function(req, res) {
+  var filePath = '.' + req.url;
 
-app.get('/', function(req, res) {
-  res.sendfile('./public/index.html');
-});
+  if (filePath === './') filePath = './test/index.html';
 
-app.listen(5000);
+  var extname = path.extname(filePath);
+  var contentType;
+
+  switch (extname) {
+    case '.js':
+      contentType = 'text/javascript';
+      break;
+    case '.css':
+      contentType = 'text/css';
+      break;
+    default:
+      contentType = 'text/html';
+  }
+
+
+  fs.readFile(filePath, function(error, content) {
+    if (error) {
+      if (error.code === 'ENOENT') {
+        res.writeHead(404);
+      } else {
+        res.writeHead(500);
+      }
+      res.end();
+    } else {
+      res.writeHead(200, {'Content-Type': contentType});
+      res.end(content, 'utf-8');
+    }
+  });
+}).listen(5000);

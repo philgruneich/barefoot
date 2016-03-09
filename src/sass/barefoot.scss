@@ -51,7 +51,6 @@ $magic: 1.618em;
     &:after {
       color: $light;
 		}
-
 	}
 
   &.is-active {
@@ -61,12 +60,10 @@ $magic: 1.618em;
     &:after {
       color: $light;
 		}
-
 	}
-
 }
 
-.littlefoot-footnote {
+.bf-footnote {
   background: $light;
   border: 1px solid $light-gray;
   border-radius: .25em;
@@ -90,7 +87,6 @@ $magic: 1.618em;
     bottom: 0;
     top: auto; 
 	}
-
 }
 
 .footnote-wrapper {
@@ -118,7 +114,6 @@ $magic: 1.618em;
     bottom: -.49em;
     top: auto;
   }
-
 }
 
 .footnote-content {
@@ -140,5 +135,4 @@ $magic: 1.618em;
     margin-bottom: 0;
     padding-bottom: 0;
   }
-
 }
