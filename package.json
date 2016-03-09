@@ -1,6 +1,6 @@
 {
   "name": "barefoot",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "A lightweight Bigfoot.js alternative in Vanilla Javascript for beautiful footnotes",
   "main": "index.js",
   "scripts": {
