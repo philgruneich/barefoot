@@ -18,7 +18,8 @@ class BareFoot {
         fnClass: 'bf-footnote',
         fnContentClass: 'footnote-content',
         fnWrapperClass: 'footnote-wrapper',
-        tooltipClass: 'footnote-tooltip'
+        tooltipClass: 'footnote-tooltip',
+        fnOnTopClass: 'footnote-is-top'
       }
 
       this.config = Object.assign({}, DEFAULTS, options);
@@ -61,6 +62,15 @@ class BareFoot {
         }
         return null;
       });
+
+      // Calculate vertical scrollbar width
+      // Inspired by https://davidwalsh.name/detect-scrollbar-width
+
+      let scrollDiv = document.createElement('div');
+      scrollDiv.style.cssText = 'width: 100px; height: 100px; overflow: scroll; position: absolute; top: -9999px; visibility: hidden;'
+      document.body.appendChild(scrollDiv);
+      this.scrollBarWidth = scrollDiv.offsetWidth - scrollDiv.clientWidth;
+      document.body.removeChild(scrollDiv);
     }
 
     removeBackLinks(fnHtml, backId) {
@@ -88,11 +98,12 @@ class BareFoot {
     }
 
     clickAction(e) {
-      let btn, content, id, fnHtml, fn, windowHeight;
+      let btn, content, id, fnHtml, fn, windowHeight, scrollHeight;
 
       btn = e.target;
       content = btn.getAttribute('data-fn-content');
       id = btn.getAttribute("data-footnote");
+      scrollHeight = this.getScrollHeight();
 
       if (!btn.nextElementSibling) {
         this.dismissFootnotes();
@@ -101,7 +112,7 @@ class BareFoot {
         fn = btn.nextElementSibling;
 
         this.calculateOffset(fn, btn);
-        this.calculateSpacing(fn);
+        this.calculateSpacing(fn, scrollHeight);
 
         btn.classList.add(this.config.activeBtnClass);
         fn.classList.add(this.config.activeFnClass);
@@ -138,8 +149,8 @@ class BareFoot {
 
       if ((contOffset + wrapMove) < 0) {
         wrapMove = (wrapMove - (contOffset + wrapMove));
-      } else if ((contOffset + wrapMove + wrapWidth) > windowWidth) {
-        wrapMove = (wrapMove - (contOffset + wrapMove + wrapWidth + (contWidth / 2) - windowWidth));
+      } else if ((contOffset + wrapMove + wrapWidth + this.scrollBarWidth) > windowWidth) {
+        wrapMove = (wrapMove - (contOffset + wrapMove + wrapWidth + this.scrollBarWidth + (contWidth / 2) - windowWidth));
       }
 
       fn.style.left = wrapMove + "px";
@@ -171,16 +182,19 @@ class BareFoot {
       let footnotes = document.querySelectorAll(`.${this.config.activeFnClass}`);
 
       if (footnotes.length) {
-        [].forEach.call(footnotes, () => {
+        [].forEach.call(footnotes, (fn) => {
           this.calculateOffset(fn);
           this.calculateSpacing(fn);
         });
       }
     }
 
-    calculateSpacing(fn) {
-      let bcr, bch, bcb, margins, windowHeight;
+    getScrollHeight() {
+      return document.documentElement.scrollHeight;
+    }
 
+    calculateSpacing(fn, height) {
+      let bcr, bch, bcb, margins, windowHeight;
       margins = this.calculateMargins(fn);
       windowHeight = window.innerHeight || window.availHeight;
 
@@ -188,7 +202,7 @@ class BareFoot {
       bch = bcr.height;
       bcb = bcr.bottom;
 
-      if (bcb > (windowHeight - margins.bottom)) {
+      if (height < this.getScrollHeight() || bcb > (windowHeight - margins.bottom)) {
         fn.classList.add(this.config.fnOnTopClass);
       } else if (windowHeight  - (bch + margins.top) > bcb && fn.classList.contains(this.config.fnOnTopClass)) {
         fn.classList.remove(this.config.fnOnTopClass);
@@ -236,8 +250,6 @@ class BareFoot {
 
       if (document.body.classList.contains(this.config.backdropClass)) document.body.classList.remove(this.config.backdropClass);
     }
-
-
 
     init() {
 
