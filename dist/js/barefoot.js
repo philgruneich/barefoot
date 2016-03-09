@@ -7,6 +7,11 @@ var _createClass = function () { function defineProperties(target, props) { for 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 var BareFoot = function () {
+  /**
+   * @param  {Object} options [Options to configure the script]
+   * @constructor
+   */
+
   function BareFoot() {
     var _this = this;
 
@@ -34,6 +39,7 @@ var BareFoot = function () {
       fnOnTopClass: 'footnote-is-top'
     };
 
+    // Merges defaults with custom options
     this.config = _extends({}, DEFAULTS, options);
 
     // A selector could select multiple containers
@@ -80,11 +86,17 @@ var BareFoot = function () {
     document.body.removeChild(scrollDiv);
   }
 
+  /**
+   * Footnotes often have a link to return to the sup, before moving the contents to each individual footnote, we gotta remove this hook to get a clean content.
+   * @param  {String} fnHtml [Html from the footnote]
+   * @param  {String} backId [ID this footnote refers to]
+   * @return {String}        [Clean Html]
+   */
+
+
   _createClass(BareFoot, [{
     key: "removeBackLinks",
     value: function removeBackLinks(fnHtml, backId) {
-      var regex = void 0;
-
       if (backId.indexOf(' ') >= 0) {
         backId = backId.trim().replace(/\s+/g, "|").replace(/(.*)/g, "($1)");
       }
@@ -93,20 +105,44 @@ var BareFoot = function () {
         backId = backId.slice(1);
       }
 
-      regex = new RegExp("(\\s|&nbsp;)*<\\s*a[^#<]*#" + backId + "[^>]*>(.*?)<\\s*/\\s*a>", "g");
+      var regex = new RegExp("(\\s|&nbsp;)*<\\s*a[^#<]*#" + backId + "[^>]*>(.*?)<\\s*/\\s*a>", "g");
 
       return fnHtml.replace(regex, "").replace("[]", "");
     }
+
+    /**
+     * Builds the buttons for each footnote based on the configured template.
+     * @param  {String} ref     [ID this element refers to]
+     * @param  {String} id      [ID for this element]
+     * @param  {String} n       [Number that illustrates the footnote]
+     * @param  {String} content [Footnote content]
+     * @return {String}         [Html Markup]
+     */
+
   }, {
     key: "buildButton",
     value: function buildButton(ref, id, n, content) {
       return this.config.fnButtonMarkup.replace(/\{\{FOOTNOTEREFID\}\}/g, ref).replace(/\{\{FOOTNOTEID\}\}/g, id).replace(/\{\{FOOTNOTENUMBER\}\}/g, n).replace(/\{\{FOOTNOTECONTENT\}\}/g, content);
     }
+
+    /**
+     * Builds the content for each footnote based on the configured template.
+     * @param  {String} id      [ID from the parent of this element]
+     * @param  {String} content [Footnote content]
+     * @return {String}         [Html Markup]
+     */
+
   }, {
     key: "buildContent",
     value: function buildContent(id, content) {
       return this.config.fnContentMarkup.replace(/\{\{FOOTNOTEID\}\}/g, id).replace(/\{\{FOOTNOTECONTENT\}\}/g, content);
     }
+
+    /**
+     * Triggers whenever an user clicks a footnote button and is responsible to coordinate all the necessary steps to show and position the footnotes.
+     * @param  {Event} e [Event]
+     */
+
   }, {
     key: "clickAction",
     value: function clickAction(e) {
@@ -116,38 +152,54 @@ var BareFoot = function () {
           fnHtml = void 0,
           fn = void 0,
           windowHeight = void 0,
-          scrollHeight = void 0;
+          scrollHeight = void 0,
+          returnOnDismiss = void 0;
 
       btn = e.target;
       content = btn.getAttribute('data-fn-content');
       id = btn.getAttribute("data-footnote");
+      returnOnDismiss = btn.classList.contains('is-active');
+
+      // We calculate the document.documentElement.scrollHeight before inserting the footnote, so later (at the calculateSpacing function to be more specific), we can check if there's any overflow to the bottom of the page, if so it flips the footnote to the top.
       scrollHeight = this.getScrollHeight();
 
-      if (!btn.nextElementSibling) {
-        this.dismissFootnotes();
-        fnHtml = this.buildContent(id, content);
-        btn.insertAdjacentHTML('afterend', fnHtml);
-        fn = btn.nextElementSibling;
+      this.dismissFootnotes();
 
-        this.calculateOffset(fn, btn);
-        this.calculateSpacing(fn, scrollHeight);
+      if (returnOnDismiss) {
+        return;
+      }
 
-        btn.classList.add(this.config.activeBtnClass);
-        fn.classList.add(this.config.activeFnClass);
+      fnHtml = this.buildContent(id, content);
+      btn.insertAdjacentHTML('afterend', fnHtml);
+      fn = btn.nextElementSibling;
 
-        fn.querySelector("." + this.config.fnContentClass).focus();
+      // Position and flip the footnote on demand.
+      this.calculateOffset(fn, btn);
+      this.calculateSpacing(fn, scrollHeight);
 
-        if ('ontouchstart' in document.documentElement) {
-          document.body.classList.add(this.config.backdropClass);
-        }
+      btn.classList.add(this.config.activeBtnClass);
+      fn.classList.add(this.config.activeFnClass);
 
-        if (this.config.activeCallback) {
-          this.config.activeCallback(btn, fn);
-        }
-      } else {
-        this.dismissFootnotes();
+      // Focus is set on the footnote content, this looks kinda ugly but allows keyboard navigation and scrolling when the content overflow. I have a gut feeling this is good, so I'm sticking to it. All the help to improve accessibility is welcome.
+      fn.querySelector("." + this.config.fnContentClass).focus();
+
+      // As far as I recall, touch devices require a tweak to dismiss footnotes when you tap the body outside the footnote, this is the tweak.
+      if ('ontouchstart' in document.documentElement) {
+        document.body.classList.add(this.config.backdropClass);
+      }
+
+      // Triggers the activeCallback if there's any. I never used and never tested this, but I'm passing the button and the footnote as parameters because I think that's all you may expect.
+      if (this.config.activeCallback) {
+        this.config.activeCallback(btn, fn);
       }
     }
+
+    /**
+     * Mathematical Hell. This function repositions the footnote according to the edges of the screen. The goal is to never (gonna give you up) overflow content. Also, remember when we calculated the scrollBarWidth? This is where we use it in case the footnote overflows to the right.
+     * @param  {Element} fn  [Footnote Node]
+     * @param  {Element}   btn [Button Node]
+     */
+
   }, {
     key: "calculateOffset",
     value: function calculateOffset(fn, btn) {
@@ -177,17 +229,26 @@ var BareFoot = function () {
       wrapMove = -(wrapWidth / 2 - contWidth / 2);
       windowWidth = window.innerWidth || window.availWidth;
 
+      // Footnote overflows to the left
       if (contOffset + wrapMove < 0) {
         wrapMove = wrapMove - (contOffset + wrapMove);
-      } else if (contOffset + wrapMove + wrapWidth + this.scrollBarWidth > windowWidth) {
-        wrapMove = wrapMove - (contOffset + wrapMove + wrapWidth + this.scrollBarWidth + contWidth / 2 - windowWidth);
       }
+      // Footnote overflows to the right
+      else if (contOffset + wrapMove + wrapWidth + this.scrollBarWidth > windowWidth) {
+          wrapMove = wrapMove - (contOffset + wrapMove + wrapWidth + this.scrollBarWidth + contWidth / 2 - windowWidth);
+        }
 
       fn.style.left = wrapMove + "px";
       wrapOffset = contOffset + wrapMove;
       tipOffset = contOffset - wrapOffset + contWidth / 2 - tipWidth / 2;
       tooltip.style.left = tipOffset + "px";
     }
+
+    /**
+     * Removes element, mostly used for footnotes.
+     * @param  {Element} el
+     */
+
   }, {
     key: "removeFootnoteChild",
     value: function removeFootnoteChild(el) {
