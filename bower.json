@@ -1,0 +1,30 @@
+{
+  "name": "barefoot",
+  "description": "A lightweight Bigfoot.js alternative in Vanilla Javascript for beautiful footnotes",
+  "main": [
+    "dist/js/barefoot.min.js",
+    "dist/css/barefoot.min.css"
+  ],
+  "authors": [
+    "Chris Sauve and Phillip Gruneich"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "footnote",
+    "markdown",
+    "bigfoot"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/philgruneich/barefoot.git"
+  },
+  "homepage": "https://github.com/philgruneich/littlefoot",
+  "moduleType": ["globals"],
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
