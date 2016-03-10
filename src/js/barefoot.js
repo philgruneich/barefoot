@@ -167,7 +167,7 @@ class BareFoot {
   /**
    * Mathematical Hell. This function repositions the footnote according to the edges of the screen. The goal is to never (gonna give you up) overflow content. Also, remember when we calculated the scrollBarWidth? This is where we use it in case the footnote overflows to the right.
    * @param  {Element} fn  [Footnote Node]
-   * @param  {Element}   btn [Button Node]
+   * @param  {Element} btn [Button Node]
    */
   calculateOffset(fn, btn) {
     let tooltip, container, btnOffset, btnWidth, contWidth, contOffset, wrapWidth, wrapMove, wrapOffset, tipWidth, tipOffset, windowWidth;
@@ -208,7 +208,13 @@ class BareFoot {
     return el.parentNode.removeChild(el);
   }
 
-  
+  /**
+   * Delays and withholds function triggering in events. Based on https://davidwalsh.name/javascript-debounce-function
+   * @param  {Function} func      [The function to after the delays]
+   * @param  {Number}   wait      [The delay in milliseconds]
+   * @param  {Boolean}  immediate [if true, triggers the function on the leading edge rather than the trailing]
+   * @return {Function}           [It's a closure, what did you expect?]
+   */
   debounce(func, wait, immediate) {
     var timeout;
     return function(...args) {
@@ -224,6 +230,9 @@ class BareFoot {
     }
   }
 
+  /**
+   * Action to be attached to the resize event and recalculate the position of the active footnotes.
+   */
   resizeAction() {
     let footnotes = document.querySelectorAll(`.${this.config.activeFnClass}`);
 
@@ -235,10 +244,19 @@ class BareFoot {
     }
   }
 
+  /**
+   * Returns the height of the document. Used to find out if the footnote overflows the content
+   * @return {Number} [see description]
+   */
   getScrollHeight() {
     return document.documentElement.scrollHeight;
   }
 
+  /**
+   * Calculates if the footnote should appear above or below the button
+   * @param  {Element}  fn     [The footnote in question]
+   * @param  {Number}   height [By now the footnote is about to show up and we use the previous value, this one, to check if the footnote is overflow the document]
+   */
   calculateSpacing(fn, height) {
     let bcr, bch, bcb, margins, windowHeight;
     margins = this.calculateMargins(fn);
@@ -255,6 +273,9 @@ class BareFoot {
     }
   }
 
+  /**
+   * Action to be attached to the scroll event to verify if we should change the position of the footnote using the available space.
+   */
   scrollAction() {
     let footnotes = document.querySelectorAll(`.${this.config.activeFnClass}`);
 
@@ -268,8 +289,12 @@ class BareFoot {
     }
   }
 
+  /**
+   * Returns the computed margins of an element, used to calculate the position and spacing.
+   * @param  {Element} fn  [The footnote]
+   * @return {Object}      [An object containing all margins]
+   */
   calculateMargins(fn) {
-    
     let computedStyle = window.getComputedStyle(fn, null);
     return {
       top: parseFloat(computedStyle.marginTop),
@@ -279,10 +304,28 @@ class BareFoot {
     }
   }
 
+  /**
+   * This is set on click and touchend events for the body and removes the footnotes when you click/tap outside them
+   * @param  {Event}
+   */
   documentAction(ev) {
     if (!ev.target.closest(`.${this.config.fnContainer}`)) this.dismissFootnotes();
   }
 
+  /**
+   * Dismisses active footnotes when the ESC key is hit and the current active element is a footnote. Returns focus to the footnote button. 
+   * @param  {Event} e 
+   */
+  dismissOnEsc(ev) {
+    if (ev.keyCode === 27 && document.activeElement.matches(`.${this.config.fnContentClass}`)) {
+        document.activeElement.closest(`.${this.config.activeFnClass}`).previousElementSibling.focus();
+        return this.dismissFootnotes();
+      }
+  }
+
+  /**
+   * Removes all open footnotes (and also the backdrop, remember it?)
+   */
   dismissFootnotes() {
     let footnotes = document.querySelectorAll(`.${this.config.activeFnClass}`);
 
@@ -297,29 +340,26 @@ class BareFoot {
     if (document.body.classList.contains(this.config.backdropClass)) document.body.classList.remove(this.config.backdropClass);
   }
 
+  /**
+   * Opens pandora's box. This function crosses every footnote and makes all the replacements and then sets up every eventListener for the script to work.
+   */
   init() {
-
     [].forEach.call(this.footnotes, (fns, i) => {
       var currentScope = fns[0].closest(this.config.scope);
 
       [].forEach.call(fns, (fn, i) => {
-        let fnContent
-          , fnHrefId
-          , fnId
-          , ref
-          , fnRefN
-          , footnote
-        ;
+        let fnContent, fnHrefId, fnId, ref, fnRefN, footnote;
 
         fnRefN = i + 1;
         fnHrefId = fn.querySelector(this.config.supQuery).getAttribute('href');
-        // Removes the hash from the href attribute. I had to appeal to this because there has been some issues parsing IDs with colons on querySelector. Yes, I tried to escape them, but no good.
+
         fnContent = this.removeBackLinks(fn.innerHTML.trim(), fnHrefId);
 
         fnContent = fnContent.replace(/"/g, "&quot;").replace(/&lt;/g, "&ltsym;").replace(/&gt;/g, "&gtsym;");
 
         if (fnContent.indexOf("<") !== 0) fnContent = "<p>" + fnContent + "</p>";
 
+        // Gotta escape `:` used within a querySelector so JS doesn't think you're looking for a pseudo-element.
         ref = currentScope.querySelector(fnHrefId.replace(':', '\\:'));
 
         footnote = `<div class="${this.config.fnContainer}">${this.buildButton(fnHrefId, fn.id, fnRefN, fnContent)}</div>`;
@@ -329,18 +369,8 @@ class BareFoot {
       });
     });
 
-    this.eventsSetup();
-  }
-
-  dismissOnEsc(e) {
-    if (e.keyCode === 27 && document.activeElement.matches(`.${this.config.fnContentClass}`)) {
-        document.activeElement.closest(`.${this.config.activeFnClass}`).previousElementSibling.focus();
-        return this.dismissFootnotes();
-      }
-  }
-
-  eventsSetup() {
-
+    // Setting up events
+    
     [].forEach.call(document.querySelectorAll(`.${this.config.buttonClass}`), (el) => {
       el.addEventListener("click", this.clickAction.bind(this));
     });
