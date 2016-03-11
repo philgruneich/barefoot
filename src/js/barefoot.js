@@ -1,6 +1,11 @@
-"use strict";
+import closest from 'dom-closest'
+import matches from 'dom-matches'
+import classList from 'dom-classlist'
+import escape from 'lodash/escape'
+import template from 'lodash/template'
+import debounce from 'lodash/debounce'
 
-class BareFoot {
+clas BareFoot {
   /**
    * @param  {Object} options [Options to configure the script]
    * @constructor
@@ -38,34 +43,6 @@ class BareFoot {
     // Groups all footnotes within every group.
     this.footnotes = this.divFootnotes.map((el) => {
       return el.querySelectorAll(this.config.footnotesQuery);
-    });
-
-    // Polyfill for Element.matches()
-    // Based on https://davidwalsh.name/element-matches-selector
-    
-    Element.prototype.matches = (Element.prototype.matches || 
-                                Element.prototype.mozMatchesSelector || 
-                                Element.prototype.msMatchesSelector || 
-                                Element.prototype.oMatchesSelector ||
-                                Element.prototype.webkitMatchesSelector ||
-                                function(s) {
-                                  return [].indexOf.call(document.querySelectorAll(s), this) !== -1;
-                                });
-
-    // Polyfill for Element.closest()
-    // Based on http://stackoverflow.com/questions/18663941/finding-closest-element-without-jquery
-    
-    Element.prototype.closest = (Element.prototype.closest || function(s) {
-      var el = this;
-
-      while (el !== null) {
-        let parent = el.parentElement;
-        if (parent !== null && parent.matches(s)) {
-          return parent;
-        }
-        el = parent;
-      }
-      return null;
     });
 
     // Calculate vertical scrollbar width
@@ -130,7 +107,7 @@ class BareFoot {
     btn = e.target;
     content = btn.getAttribute('data-fn-content');
     id = btn.getAttribute("data-footnote");
-    returnOnDismiss = btn.classList.contains('is-active');
+    returnOnDismiss = classList(btn).contains('is-active');
 
     // We calculate the document.documentElement.scrollHeight before inserting the footnote, so later (at the calculateSpacing function to be more specific), we can check if there's any overflow to the bottom of the page, if so it flips the footnote to the top.
     scrollHeight = this.getScrollHeight();
@@ -147,15 +124,15 @@ class BareFoot {
     this.calculateOffset(fn, btn);
     this.calculateSpacing(fn, scrollHeight);
 
-    btn.classList.add(this.config.activeBtnClass);
-    fn.classList.add(this.config.activeFnClass);
+    classList(btn).add(this.config.activeBtnClass);
+    classList(fn).add(this.config.activeFnClass);
 
     // Focus is set on the footnote content, this looks kinda ugly but allows keyboard navigation and scrolling when the content overflow. I have a gut feeling this is good, so I'm sticking to it. All the help to improve accessibility is welcome.
     fn.querySelector(`.${this.config.fnContentClass}`).focus();
 
     // As far as I recall, touch devices require a tweak to dismiss footnotes when you tap the body outside the footnote, this is the tweak.
     if ('ontouchstart' in document.documentElement) {
-      document.body.classList.add(this.config.backdropClass);
+      classList(document.body).add(this.config.backdropClass);
     }
 
     // Triggers the activeCallback if there's any. I never used and never tested this, but I'm passing the button and the footnote as parameters because I think that's all you may expect.
@@ -209,28 +186,6 @@ class BareFoot {
   }
 
   /**
-   * Delays and withholds function triggering in events. Based on https://davidwalsh.name/javascript-debounce-function
-   * @param  {Function} func      [The function to after the delays]
-   * @param  {Number}   wait      [The delay in milliseconds]
-   * @param  {Boolean}  immediate [if true, triggers the function on the leading edge rather than the trailing]
-   * @return {Function}           [It's a closure, what did you expect?]
-   */
-  debounce(func, wait, immediate) {
-    var timeout;
-    return function(...args) {
-
-      let later = () => {
-        timeout = null;
-        if (!immediate) func.apply(this, args);
-      };
-
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
-      if (immediate && !timeout) func.apply(this, args);
-    }
-  }
-
-  /**
    * Action to be attached to the resize event and recalculate the position of the active footnotes.
    */
   resizeAction() {
@@ -267,9 +222,9 @@ class BareFoot {
     bcb = bcr.bottom;
 
     if (height < this.getScrollHeight() || bcb > (windowHeight - margins.bottom)) {
-      fn.classList.add(this.config.fnOnTopClass);
-    } else if (windowHeight  - (bch + margins.top) > bcb && fn.classList.contains(this.config.fnOnTopClass)) {
-      fn.classList.remove(this.config.fnOnTopClass);
+      classList(fn).add(this.config.fnOnTopClass);
+    } else if (windowHeight  - (bch + margins.top) > bcb && classList(fn).contains(this.config.fnOnTopClass)) {
+      classList(fn).remove(this.config.fnOnTopClass);
     }
   }
 
@@ -309,7 +264,7 @@ class BareFoot {
    * @param  {Event}
    */
   documentAction(ev) {
-    if (!ev.target.closest(`.${this.config.fnContainer}`)) this.dismissFootnotes();
+    if (!closest(ev.target, `.${this.config.fnContainer}`)) this.dismissFootnotes();
   }
 
   /**
@@ -317,8 +272,8 @@ class BareFoot {
    * @param  {Event} e 
    */
   dismissOnEsc(ev) {
-    if (ev.keyCode === 27 && document.activeElement.matches(`.${this.config.fnContentClass}`)) {
-        document.activeElement.closest(`.${this.config.activeFnClass}`).previousElementSibling.focus();
+    if (ev.keyCode === 27 && matches(document.activeElement, `.${this.config.fnContentClass}`)) {
+        closest(document.activeElement, `.${this.config.activeFnClass}`).previousElementSibling.focus();
         return this.dismissFootnotes();
       }
   }
@@ -331,13 +286,13 @@ class BareFoot {
 
     if (footnotes.length) {
       [].forEach.call(footnotes, (el) => {
-        el.previousElementSibling.classList.remove(this.config.activeBtnClass);
+        classList(el.previousElementSibling).remove(this.config.activeBtnClass);
         el.addEventListener('transitionend', this.removeFootnoteChild(el), false);
-        el.classList.remove(this.config.activeFnClass);
+        classList(el).remove(this.config.activeFnClass);
       })
     }
 
-    if (document.body.classList.contains(this.config.backdropClass)) document.body.classList.remove(this.config.backdropClass);
+    if (classList(document.body).contains(this.config.backdropClass)) classList(document.body).remove(this.config.backdropClass);
   }
 
   /**
@@ -345,7 +300,7 @@ class BareFoot {
    */
   init() {
     [].forEach.call(this.footnotes, (fns, i) => {
-      var currentScope = fns[0].closest(this.config.scope);
+      var currentScope = closest(fns[0], this.config.scope);
 
       [].forEach.call(fns, (fn, i) => {
         let fnContent, fnHrefId, fnId, ref, fnRefN, footnote;
@@ -375,8 +330,8 @@ class BareFoot {
       el.addEventListener("click", this.clickAction.bind(this));
     });
 
-    window.addEventListener("resize", this.debounce(this.resizeAction.bind(this), 100));
-    window.addEventListener("scroll", this.debounce(this.scrollAction.bind(this), 100));
+    window.addEventListener("resize", debounce(this.resizeAction.bind(this), 100));
+    window.addEventListener("scroll", debounce(this.scrollAction.bind(this), 100));
     window.addEventListener("keyup", this.dismissOnEsc.bind(this));
     document.body.addEventListener("click", this.documentAction.bind(this));
     document.body.addEventListener("touchend", this.documentAction.bind(this));

@@ -1,8 +1,34 @@
-"use strict";
+'use strict';
 
 var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _domClosest = require('dom-closest');
+
+var _domClosest2 = _interopRequireDefault(_domClosest);
+
+var _domMatches = require('dom-matches');
+
+var _domMatches2 = _interopRequireDefault(_domMatches);
+
+var _domClasslist = require('dom-classlist');
+
+var _domClasslist2 = _interopRequireDefault(_domClasslist);
+
+var _escape = require('lodash/escape');
+
+var _escape2 = _interopRequireDefault(_escape);
+
+var _template = require('lodash/template');
+
+var _template2 = _interopRequireDefault(_template);
+
+var _debounce = require('lodash/debounce');
+
+var _debounce2 = _interopRequireDefault(_debounce);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -53,29 +79,6 @@ var BareFoot = function () {
       return el.querySelectorAll(_this.config.footnotesQuery);
     });
 
-    // Polyfill for Element.matches()
-    // Based on https://davidwalsh.name/element-matches-selector
-
-    Element.prototype.matches = Element.prototype.matches || Element.prototype.mozMatchesSelector || Element.prototype.msMatchesSelector || Element.prototype.oMatchesSelector || Element.prototype.webkitMatchesSelector || function (s) {
-      return [].indexOf.call(document.querySelectorAll(s), this) !== -1;
-    };
-
-    // Polyfill for Element.closest()
-    // Based on http://stackoverflow.com/questions/18663941/finding-closest-element-without-jquery
-
-    Element.prototype.closest = Element.prototype.closest || function (s) {
-      var el = this;
-
-      while (el !== null) {
-        var parent = el.parentElement;
-        if (parent !== null && parent.matches(s)) {
-          return parent;
-        }
-        el = parent;
-      }
-      return null;
-    };
-
     // Calculate vertical scrollbar width
     // Inspired by https://davidwalsh.name/detect-scrollbar-width
 
@@ -95,7 +98,7 @@ var BareFoot = function () {
 
 
   _createClass(BareFoot, [{
-    key: "removeBackLinks",
+    key: 'removeBackLinks',
     value: function removeBackLinks(fnHtml, backId) {
       if (backId.indexOf(' ') >= 0) {
         backId = backId.trim().replace(/\s+/g, "|").replace(/(.*)/g, "($1)");
@@ -105,7 +108,7 @@ var BareFoot = function () {
         backId = backId.slice(1);
       }
 
-      var regex = new RegExp("(\\s|&nbsp;)*<\\s*a[^#<]*#" + backId + "[^>]*>(.*?)<\\s*/\\s*a>", "g");
+      var regex = new RegExp('(\\s|&nbsp;)*<\\s*a[^#<]*#' + backId + '[^>]*>(.*?)<\\s*/\\s*a>', "g");
 
       return fnHtml.replace(regex, "").replace("[]", "");
     }
@@ -120,7 +123,7 @@ var BareFoot = function () {
      */
 
   }, {
-    key: "buildButton",
+    key: 'buildButton',
     value: function buildButton(ref, id, n, content) {
       return this.config.fnButtonMarkup.replace(/\{\{FOOTNOTEREFID\}\}/g, ref).replace(/\{\{FOOTNOTEID\}\}/g, id).replace(/\{\{FOOTNOTENUMBER\}\}/g, n).replace(/\{\{FOOTNOTECONTENT\}\}/g, content);
     }
@@ -133,7 +136,7 @@ var BareFoot = function () {
      */
 
   }, {
-    key: "buildContent",
+    key: 'buildContent',
     value: function buildContent(id, content) {
       return this.config.fnContentMarkup.replace(/\{\{FOOTNOTEID\}\}/g, id).replace(/\{\{FOOTNOTECONTENT\}\}/g, content);
     }
@@ -144,7 +147,7 @@ var BareFoot = function () {
      */
 
   }, {
-    key: "clickAction",
+    key: 'clickAction',
     value: function clickAction(e) {
       var btn = void 0,
           content = void 0,
@@ -158,7 +161,7 @@ var BareFoot = function () {
       btn = e.target;
       content = btn.getAttribute('data-fn-content');
       id = btn.getAttribute("data-footnote");
-      returnOnDismiss = btn.classList.contains('is-active');
+      returnOnDismiss = (0, _domClasslist2.default)(btn).contains('is-active');
 
       // We calculate the document.documentElement.scrollHeight before inserting the footnote, so later (at the calculateSpacing function to be more specific), we can check if there's any overflow to the bottom of the page, if so it flips the footnote to the top.
       scrollHeight = this.getScrollHeight();
@@ -177,15 +180,15 @@ var BareFoot = function () {
       this.calculateOffset(fn, btn);
       this.calculateSpacing(fn, scrollHeight);
 
-      btn.classList.add(this.config.activeBtnClass);
-      fn.classList.add(this.config.activeFnClass);
+      (0, _domClasslist2.default)(btn).add(this.config.activeBtnClass);
+      (0, _domClasslist2.default)(fn).add(this.config.activeFnClass);
 
       // Focus is set on the footnote content, this looks kinda ugly but allows keyboard navigation and scrolling when the content overflow. I have a gut feeling this is good, so I'm sticking to it. All the help to improve accessibility is welcome.
-      fn.querySelector("." + this.config.fnContentClass).focus();
+      fn.querySelector('.' + this.config.fnContentClass).focus();
 
       // As far as I recall, touch devices require a tweak to dismiss footnotes when you tap the body outside the footnote, this is the tweak.
       if ('ontouchstart' in document.documentElement) {
-        document.body.classList.add(this.config.backdropClass);
+        (0, _domClasslist2.default)(document.body).add(this.config.backdropClass);
       }
 
       // Triggers the activeCallback if there's any. I never used and never tested this, but I'm passing the button and the footnote as parameters because I think that's all you may expect.
@@ -201,7 +204,7 @@ var BareFoot = function () {
      */
 
   }, {
-    key: "calculateOffset",
+    key: 'calculateOffset',
     value: function calculateOffset(fn, btn) {
       var tooltip = void 0,
           container = void 0,
@@ -220,7 +223,7 @@ var BareFoot = function () {
 
       btnOffset = btn.offsetLeft;
       btnWidth = btn.offsetWidth;
-      tooltip = fn.querySelector("." + this.config.tooltipClass);
+      tooltip = fn.querySelector('.' + this.config.tooltipClass);
       tipWidth = tooltip.clientWidth;
       container = fn.parentNode;
       contWidth = container.clientWidth;
@@ -250,39 +253,9 @@ var BareFoot = function () {
      */
 
   }, {
-    key: "removeFootnoteChild",
+    key: 'removeFootnoteChild',
     value: function removeFootnoteChild(el) {
       return el.parentNode.removeChild(el);
-    }
-
-    /**
-     * Delays and withholds function triggering in events. Based on https://davidwalsh.name/javascript-debounce-function
-     * @param  {Function} func      [The function to after the delays]
-     * @param  {Number}   wait      [The delay in milliseconds]
-     * @param  {Boolean}  immediate [if true, triggers the function on the leading edge rather than the trailing]
-     * @return {Function}           [It's a closure, what did you expect?]
-     */
-
-  }, {
-    key: "debounce",
-    value: function debounce(func, wait, immediate) {
-      var timeout;
-      return function () {
-        var _this2 = this;
-
-        for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
-          args[_key] = arguments[_key];
-        }
-
-        var later = function later() {
-          timeout = null;
-          if (!immediate) func.apply(_this2, args);
-        };
-
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-        if (immediate && !timeout) func.apply(this, args);
-      };
     }
 
     /**
@@ -290,16 +263,16 @@ var BareFoot = function () {
      */
 
   }, {
-    key: "resizeAction",
+    key: 'resizeAction',
     value: function resizeAction() {
-      var _this3 = this;
+      var _this2 = this;
 
-      var footnotes = document.querySelectorAll("." + this.config.activeFnClass);
+      var footnotes = document.querySelectorAll('.' + this.config.activeFnClass);
 
       if (footnotes.length) {
         [].forEach.call(footnotes, function (fn) {
-          _this3.calculateOffset(fn);
-          _this3.calculateSpacing(fn);
+          _this2.calculateOffset(fn);
+          _this2.calculateSpacing(fn);
         });
       }
     }
@@ -310,7 +283,7 @@ var BareFoot = function () {
      */
 
   }, {
-    key: "getScrollHeight",
+    key: 'getScrollHeight',
     value: function getScrollHeight() {
       return document.documentElement.scrollHeight;
     }
@@ -322,7 +295,7 @@ var BareFoot = function () {
      */
 
   }, {
-    key: "calculateSpacing",
+    key: 'calculateSpacing',
     value: function calculateSpacing(fn, height) {
       var bcr = void 0,
           bch = void 0,
@@ -337,9 +310,9 @@ var BareFoot = function () {
       bcb = bcr.bottom;
 
       if (height < this.getScrollHeight() || bcb > windowHeight - margins.bottom) {
-        fn.classList.add(this.config.fnOnTopClass);
-      } else if (windowHeight - (bch + margins.top) > bcb && fn.classList.contains(this.config.fnOnTopClass)) {
-        fn.classList.remove(this.config.fnOnTopClass);
+        (0, _domClasslist2.default)(fn).add(this.config.fnOnTopClass);
+      } else if (windowHeight - (bch + margins.top) > bcb && (0, _domClasslist2.default)(fn).contains(this.config.fnOnTopClass)) {
+        (0, _domClasslist2.default)(fn).remove(this.config.fnOnTopClass);
       }
     }
 
@@ -348,18 +321,18 @@ var BareFoot = function () {
      */
 
   }, {
-    key: "scrollAction",
+    key: 'scrollAction',
     value: function scrollAction() {
-      var _this4 = this;
+      var _this3 = this;
 
-      var footnotes = document.querySelectorAll("." + this.config.activeFnClass);
+      var footnotes = document.querySelectorAll('.' + this.config.activeFnClass);
 
       if (footnotes.length) {
         var windowHeight = window.innerHeight || window.availHeight,
             margins = this.calculateMargins(footnotes[0]);
 
         [].forEach.call(footnotes, function (el) {
-          _this4.calculateSpacing(el);
+          _this3.calculateSpacing(el);
         });
       }
     }
@@ -371,7 +344,7 @@ var BareFoot = function () {
      */
 
   }, {
-    key: "calculateMargins",
+    key: 'calculateMargins',
     value: function calculateMargins(fn) {
       var computedStyle = window.getComputedStyle(fn, null);
       return {
@@ -388,9 +361,9 @@ var BareFoot = function () {
      */
 
   }, {
-    key: "documentAction",
+    key: 'documentAction',
     value: function documentAction(ev) {
-      if (!ev.target.closest("." + this.config.fnContainer)) this.dismissFootnotes();
+      if (!(0, _domClosest2.default)(ev.target, '.' + this.config.fnContainer)) this.dismissFootnotes();
     }
 
     /**
@@ -399,10 +372,10 @@ var BareFoot = function () {
      */
 
   }, {
-    key: "dismissOnEsc",
+    key: 'dismissOnEsc',
     value: function dismissOnEsc(ev) {
-      if (ev.keyCode === 27 && document.activeElement.matches("." + this.config.fnContentClass)) {
-        document.activeElement.closest("." + this.config.activeFnClass).previousElementSibling.focus();
+      if (ev.keyCode === 27 && (0, _domMatches2.default)(document.activeElement, '.' + this.config.fnContentClass)) {
+        (0, _domClosest2.default)(document.activeElement, '.' + this.config.activeFnClass).previousElementSibling.focus();
         return this.dismissFootnotes();
       }
     }
@@ -412,21 +385,21 @@ var BareFoot = function () {
      */
 
   }, {
-    key: "dismissFootnotes",
+    key: 'dismissFootnotes',
     value: function dismissFootnotes() {
-      var _this5 = this;
+      var _this4 = this;
 
-      var footnotes = document.querySelectorAll("." + this.config.activeFnClass);
+      var footnotes = document.querySelectorAll('.' + this.config.activeFnClass);
 
       if (footnotes.length) {
         [].forEach.call(footnotes, function (el) {
-          el.previousElementSibling.classList.remove(_this5.config.activeBtnClass);
-          el.addEventListener('transitionend', _this5.removeFootnoteChild(el), false);
-          el.classList.remove(_this5.config.activeFnClass);
+          (0, _domClasslist2.default)(el.previousElementSibling).remove(_this4.config.activeBtnClass);
+          el.addEventListener('transitionend', _this4.removeFootnoteChild(el), false);
+          (0, _domClasslist2.default)(el).remove(_this4.config.activeFnClass);
         });
       }
 
-      if (document.body.classList.contains(this.config.backdropClass)) document.body.classList.remove(this.config.backdropClass);
+      if ((0, _domClasslist2.default)(document.body).contains(this.config.backdropClass)) (0, _domClasslist2.default)(document.body).remove(this.config.backdropClass);
     }
 
     /**
@@ -434,12 +407,12 @@ var BareFoot = function () {
      */
 
   }, {
-    key: "init",
+    key: 'init',
     value: function init() {
-      var _this6 = this;
+      var _this5 = this;
 
       [].forEach.call(this.footnotes, function (fns, i) {
-        var currentScope = fns[0].closest(_this6.config.scope);
+        var currentScope = (0, _domClosest2.default)(fns[0], _this5.config.scope);
 
         [].forEach.call(fns, function (fn, i) {
           var fnContent = void 0,
@@ -450,9 +423,9 @@ var BareFoot = function () {
               footnote = void 0;
 
           fnRefN = i + 1;
-          fnHrefId = fn.querySelector(_this6.config.supQuery).getAttribute('href');
+          fnHrefId = fn.querySelector(_this5.config.supQuery).getAttribute('href');
 
-          fnContent = _this6.removeBackLinks(fn.innerHTML.trim(), fnHrefId);
+          fnContent = _this5.removeBackLinks(fn.innerHTML.trim(), fnHrefId);
 
           fnContent = fnContent.replace(/"/g, "&quot;").replace(/&lt;/g, "&ltsym;").replace(/&gt;/g, "&gtsym;");
 
@@ -461,7 +434,7 @@ var BareFoot = function () {
           // Gotta escape `:` used within a querySelector so JS doesn't think you're looking for a pseudo-element.
           ref = currentScope.querySelector(fnHrefId.replace(':', '\\:'));
 
-          footnote = "<div class=\"" + _this6.config.fnContainer + "\">" + _this6.buildButton(fnHrefId, fn.id, fnRefN, fnContent) + "</div>";
+          footnote = '<div class="' + _this5.config.fnContainer + '">' + _this5.buildButton(fnHrefId, fn.id, fnRefN, fnContent) + '</div>';
 
           ref.insertAdjacentHTML('afterend', footnote);
           ref.parentNode.removeChild(ref);
@@ -470,12 +443,12 @@ var BareFoot = function () {
 
       // Setting up events
 
-      [].forEach.call(document.querySelectorAll("." + this.config.buttonClass), function (el) {
-        el.addEventListener("click", _this6.clickAction.bind(_this6));
+      [].forEach.call(document.querySelectorAll('.' + this.config.buttonClass), function (el) {
+        el.addEventListener("click", _this5.clickAction.bind(_this5));
       });
 
-      window.addEventListener("resize", this.debounce(this.resizeAction.bind(this), 100));
-      window.addEventListener("scroll", this.debounce(this.scrollAction.bind(this), 100));
+      window.addEventListener("resize", (0, _debounce2.default)(this.resizeAction.bind(this), 100));
+      window.addEventListener("scroll", (0, _debounce2.default)(this.scrollAction.bind(this), 100));
       window.addEventListener("keyup", this.dismissOnEsc.bind(this));
       document.body.addEventListener("click", this.documentAction.bind(this));
       document.body.addEventListener("touchend", this.documentAction.bind(this));

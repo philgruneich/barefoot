@@ -1,6 +1,8 @@
 'use strict';
 
 let autoprefixer = require('autoprefixer')
+  , babelify = require('babelify')
+  , browserify = require('browserify')
   , browserSync = require('browser-sync')
   , cssnano = require('cssnano')
   , gulp = require('gulp')
@@ -12,6 +14,9 @@ let autoprefixer = require('autoprefixer')
   , rename = require('gulp-rename')
   , sass = require('gulp-sass')
   , uglify = require('gulp-uglify')
+  , gutil = require('gulp-util')
+  , source = require('vinyl-source-stream')
+  , watchify = require('watchify')
 ;
 
 const PROCESSORS = [
@@ -21,16 +26,28 @@ const PROCESSORS = [
 
 const BROWSER_SYNC_RELOAD_DELAY = 500;
 
+const PATHS = {
+    ALL: ['src/js/*.js', 'src/js/**/*.js', 'src/sass/*.scss', 'src/sass/**/*.js'],
+    JS: ['src/js/*.js', 'src/js/**/*.js'],
+    SASS: ['src/sass/*.scss', 'src/sass/**/*.scss'],
+    OUT_JS: 'barefoot.js',
+    OUT_SASS: 'barefoot.scss',
+    DEST_JS: 'dist/js',
+    DEST_SASS: 'dist/css',
+    DEST: 'dist',
+    ENTRY_POINT: __dirname + '/src/js/barefoot.js'
+};
+
 gulp.task('bs-reload', () => {
   browserSync.reload();
 });
 
 gulp.task('sass', () => {
-  return gulp.src('src/sass/**/*.scss')
+  return gulp.src(PATHS.SASS)
     .pipe(sass({outputStyle: 'compressed'}).on('error', sass.logError))
     .pipe(postcss(PROCESSORS))
     .pipe(rename({suffix: '.min'}))
-    .pipe(gulp.dest('dist/css'))
+    .pipe(gulp.dest(PATHS.DEST_SASS))
     .pipe(browserSync.stream())
     .pipe(notify({
       message: 'Sass compiled to CSS'
@@ -38,10 +55,18 @@ gulp.task('sass', () => {
   ;
 });
 
-gulp.task('js', () => {
-  return gulp.src('src/js/**/*.js')
+gulp.task('eslint', () => {
+  return gulp.src(PATHS.JS)
     .pipe(eslint())
-    .pipe(eslint.formatEach()).on('error', function(err) { console.log('Lint'); } )
+    .pipe(eslint.formatEach()).on('error', function(err) { console.log('err'); this.emit('end'); } )
+  ;
+});
+
+gulp.task('js', ['eslint'], () => {
+  return gulp.src(PATHS.JS)
+    //.pipe(eslint())
+    //.pipe(eslint.formatEach()).on('error', function(err) { console.log('Lint'); } )
+    // I think Browserify should come here with a babelify transformation and replace the babel() below
     .pipe(babel())
     .pipe(gulp.dest('dist/js'))
     .pipe(uglify())
@@ -70,7 +95,30 @@ gulp.task('nodemon', (callback) => {
   });
 });
 
-gulp.task('browser-sync', ['nodemon'], () => {
+gulp.task('watchify', ['nodemon'], () => {
+  let watcher = watchify(browserify({
+    entries: PATHS.ENTRY_POINT,
+    transform: [babelify],
+    debug: true,
+    cache: {},
+    packageCache: {}
+  }));
+
+  watcher.on('update', function() {
+    watcher.bundle()
+      .on('error', gutil.log)
+      .pipe(source(PATHS.OUT_JS))
+      .pipe(gulp.dest(PATHS.DEST_JS))
+      .pipe(browserSync.reload({stream: true}))
+    ;
+
+    console.log('Updated');
+  }).bundle()
+    .pipe(source(PATHS.OUT_JS))
+    .pipe(gulp.dest(PATHS.DEST_JS))
+});
+
+gulp.task('browser-sync', ['watchify'], () => {
   browserSync.init({
     proxy: 'http://localhost:5000',
     port: 4000,
