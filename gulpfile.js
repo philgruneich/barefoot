@@ -40,11 +40,9 @@ gulp.task('sass', () => {
 
 gulp.task('js', () => {
   return gulp.src('src/js/**/*.js')
-    //.pipe(eslint())
-    //.pipe(eslint.formatEach())
-    .pipe(babel({
-      "presets": ["es2015"]
-    }))
+    .pipe(eslint())
+    .pipe(eslint.formatEach()).on('error', function(err) { console.log('Lint'); } )
+    .pipe(babel())
     .pipe(gulp.dest('dist/js'))
     .pipe(uglify())
     .pipe(rename({suffix: '.min'}))
@@ -77,7 +75,7 @@ gulp.task('browser-sync', ['nodemon'], () => {
     proxy: 'http://localhost:5000',
     port: 4000,
     injectChanges: true,
-    open: true
+    open: false
   });
 });
 

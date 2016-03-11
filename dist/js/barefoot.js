@@ -1,5 +1,7 @@
 "use strict";
 
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -38,7 +40,7 @@ var BareFoot = function () {
     };
 
     // Merges defaults with custom options
-    this.config = Object.assign({}, DEFAULTS, options);
+    this.config = _extends({}, DEFAULTS, options);
 
     // A selector could select multiple containers
     this.divFootnotes = [].slice.call(document.querySelectorAll(this.config.divFootnotesQuery));
@@ -195,7 +197,7 @@ var BareFoot = function () {
     /**
      * Mathematical Hell. This function repositions the footnote according to the edges of the screen. The goal is to never (gonna give you up) overflow content. Also, remember when we calculated the scrollBarWidth? This is where we use it in case the footnote overflows to the right.
      * @param  {Element} fn  [Footnote Node]
-     * @param  {Element}   btn [Button Node]
+     * @param  {Element} btn [Button Node]
      */
 
   }, {
@@ -252,6 +254,15 @@ var BareFoot = function () {
     value: function removeFootnoteChild(el) {
       return el.parentNode.removeChild(el);
     }
+
+    /**
+     * Delays and withholds function triggering in events. Based on https://davidwalsh.name/javascript-debounce-function
+     * @param  {Function} func      [The function to after the delays]
+     * @param  {Number}   wait      [The delay in milliseconds]
+     * @param  {Boolean}  immediate [if true, triggers the function on the leading edge rather than the trailing]
+     * @return {Function}           [It's a closure, what did you expect?]
+     */
+
   }, {
     key: "debounce",
     value: function debounce(func, wait, immediate) {
@@ -273,6 +284,11 @@ var BareFoot = function () {
         if (immediate && !timeout) func.apply(this, args);
       };
     }
+
+    /**
+     * Action to be attached to the resize event and recalculate the position of the active footnotes.
+     */
+
   }, {
     key: "resizeAction",
     value: function resizeAction() {
@@ -287,11 +303,24 @@ var BareFoot = function () {
         });
       }
     }
+
+    /**
+     * Returns the height of the document. Used to find out if the footnote overflows the content
+     * @return {Number} [see description]
+     */
+
   }, {
     key: "getScrollHeight",
     value: function getScrollHeight() {
       return document.documentElement.scrollHeight;
     }
+
+    /**
+     * Calculates if the footnote should appear above or below the button
+     * @param  {Element}  fn     [The footnote in question]
+     * @param  {Number}   height [By now the footnote is about to show up and we use the previous value, this one, to check if the footnote is overflow the document]
+     */
+
   }, {
     key: "calculateSpacing",
     value: function calculateSpacing(fn, height) {
@@ -313,6 +342,11 @@ var BareFoot = function () {
         fn.classList.remove(this.config.fnOnTopClass);
       }
     }
+
+    /**
+     * Action to be attached to the scroll event to verify if we should change the position of the footnote using the available space.
+     */
+
   }, {
     key: "scrollAction",
     value: function scrollAction() {
@@ -329,10 +363,16 @@ var BareFoot = function () {
         });
       }
     }
+
+    /**
+     * Returns the computed margins of an element, used to calculate the position and spacing.
+     * @param  {Element} fn  [The footnote]
+     * @return {Object}      [An object containing all margins]
+     */
+
   }, {
     key: "calculateMargins",
     value: function calculateMargins(fn) {
-
       var computedStyle = window.getComputedStyle(fn, null);
       return {
         top: parseFloat(computedStyle.marginTop),
@@ -341,11 +381,36 @@ var BareFoot = function () {
         left: parseFloat(computedStyle.marginLeft)
       };
     }
+
+    /**
+     * This is set on click and touchend events for the body and removes the footnotes when you click/tap outside them
+     * @param  {Event}
+     */
+
   }, {
     key: "documentAction",
     value: function documentAction(ev) {
       if (!ev.target.closest("." + this.config.fnContainer)) this.dismissFootnotes();
     }
+
+    /**
+     * Dismisses active footnotes when the ESC key is hit and the current active element is a footnote. Returns focus to the footnote button. 
+     * @param  {Event} e 
+     */
+
+  }, {
+    key: "dismissOnEsc",
+    value: function dismissOnEsc(ev) {
+      if (ev.keyCode === 27 && document.activeElement.matches("." + this.config.fnContentClass)) {
+        document.activeElement.closest("." + this.config.activeFnClass).previousElementSibling.focus();
+        return this.dismissFootnotes();
+      }
+    }
+
+    /**
+     * Removes all open footnotes (and also the backdrop, remember it?)
+     */
+
   }, {
     key: "dismissFootnotes",
     value: function dismissFootnotes() {
@@ -363,6 +428,11 @@ var BareFoot = function () {
 
       if (document.body.classList.contains(this.config.backdropClass)) document.body.classList.remove(this.config.backdropClass);
     }
+
+    /**
+     * Opens pandora's box. This function crosses every footnote and makes all the replacements and then sets up every eventListener for the script to work.
+     */
+
   }, {
     key: "init",
     value: function init() {
@@ -381,13 +451,14 @@ var BareFoot = function () {
 
           fnRefN = i + 1;
           fnHrefId = fn.querySelector(_this6.config.supQuery).getAttribute('href');
-          // Removes the hash from the href attribute. I had to appeal to this because there has been some issues parsing IDs with colons on querySelector. Yes, I tried to escape them, but no good.
+
           fnContent = _this6.removeBackLinks(fn.innerHTML.trim(), fnHrefId);
 
           fnContent = fnContent.replace(/"/g, "&quot;").replace(/&lt;/g, "&ltsym;").replace(/&gt;/g, "&gtsym;");
 
           if (fnContent.indexOf("<") !== 0) fnContent = "<p>" + fnContent + "</p>";
 
+          // Gotta escape `:` used within a querySelector so JS doesn't think you're looking for a pseudo-element.
           ref = currentScope.querySelector(fnHrefId.replace(':', '\\:'));
 
           footnote = "<div class=\"" + _this6.config.fnContainer + "\">" + _this6.buildButton(fnHrefId, fn.id, fnRefN, fnContent) + "</div>";
@@ -397,23 +468,10 @@ var BareFoot = function () {
         });
       });
 
-      this.eventsSetup();
-    }
-  }, {
-    key: "dismissOnEsc",
-    value: function dismissOnEsc(e) {
-      if (e.keyCode === 27 && document.activeElement.matches("." + this.config.fnContentClass)) {
-        document.activeElement.closest("." + this.config.activeFnClass).previousElementSibling.focus();
-        return this.dismissFootnotes();
-      }
-    }
-  }, {
-    key: "eventsSetup",
-    value: function eventsSetup() {
-      var _this7 = this;
+      // Setting up events
 
       [].forEach.call(document.querySelectorAll("." + this.config.buttonClass), function (el) {
-        el.addEventListener("click", _this7.clickAction.bind(_this7));
+        el.addEventListener("click", _this6.clickAction.bind(_this6));
       });
 
       window.addEventListener("resize", this.debounce(this.resizeAction.bind(this), 100));
