@@ -4,6 +4,7 @@ $magic: 1.618em;
 
 .footnote-container {
   display: inline-block;
+  font-style: normal;
   position: relative;
   text-indent: 0;
 }
@@ -85,7 +86,7 @@ $magic: 1.618em;
 
   &.footnote-is-top {
     bottom: 0;
-    top: auto; 
+    top: auto;
 	}
 }
 
